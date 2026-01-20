@@ -1,0 +1,3 @@
+# name|path|description|tags
+Profilarr|ct/profilarr.sh|Profilarr (Radarr/Sonarr profile manager)|arr
+

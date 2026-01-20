@@ -1,13 +1,13 @@
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: michelroegl-brunner
-# License: MIT | https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/LICENSE
+# License: MIT | https://raw.githubusercontent.com/narkomic/pve-scripts/main/LICENSE
 
 # ==============================================================================
 # API.FUNC - TELEMETRY & DIAGNOSTICS API
 # ==============================================================================
 #
-# Provides functions for sending anonymous telemetry data to Community-Scripts
-# API for analytics and diagnostics purposes.
+# Provides functions for sending anonymous telemetry data to an optional API
+# endpoint for analytics and diagnostics purposes.
 #
 # Features:
 #   - Container/VM creation statistics
@@ -119,7 +119,7 @@ explain_exit_code() {
   222) echo "Custom: Template download failed after 3 attempts (network/storage issue)" ;;
   223) echo "Custom: Template not available after download (storage sync issue)" ;;
   225) echo "Custom: No template available for OS/Version (check 'pveam available')" ;;
-  231) echo "Custom: LXC stack upgrade/retry failed (outdated pve-container - check https://github.com/community-scripts/ProxmoxVE/discussions/8126)" ;;
+  231) echo "Custom: LXC stack upgrade/retry failed (outdated pve-container - update pve-container/lxc-pve and retry)" ;;
 
   # --- Default ---
   *) echo "Unknown error" ;;
@@ -163,7 +163,9 @@ post_to_api() {
     return
   fi
 
-  local API_URL="http://api.community-scripts.org/upload"
+  API_BASE_URL="${API_BASE_URL:-${PVE_SCRIPTS_API_BASE_URL:-}}"
+  [[ -z "${API_BASE_URL:-}" ]] && return
+  local API_URL="${API_BASE_URL%/}/upload"
   local pve_version="not found"
   pve_version=$(pveversion | awk -F'[/ ]' '{print $2}')
 
@@ -223,7 +225,9 @@ post_to_api_vm() {
     return
   fi
 
-  local API_URL="http://api.community-scripts.org/upload"
+  API_BASE_URL="${API_BASE_URL:-${PVE_SCRIPTS_API_BASE_URL:-}}"
+  [[ -z "${API_BASE_URL:-}" ]] && return
+  local API_URL="${API_BASE_URL%/}/upload"
   local pve_version="not found"
   pve_version=$(pveversion | awk -F'[/ ]' '{print $2}')
 
@@ -285,7 +289,9 @@ post_update_to_api() {
     return 0
   fi
   exit_code=${2:-1}
-  local API_URL="http://api.community-scripts.org/upload/updatestatus"
+  API_BASE_URL="${API_BASE_URL:-${PVE_SCRIPTS_API_BASE_URL:-}}"
+  [[ -z "${API_BASE_URL:-}" ]] && return
+  local API_URL="${API_BASE_URL%/}/upload/updatestatus"
   local status="${1:-failed}"
   if [[ "$status" == "failed" ]]; then
     local exit_code="${2:-1}"

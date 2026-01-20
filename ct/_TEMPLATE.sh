@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 RAW_BASE="${RAW_BASE:-https://raw.githubusercontent.com/narkomic/pve-scripts/main}"
 if command -v curl >/dev/null 2>&1; then
   source <(curl -fsSL "${RAW_BASE}/misc/build.func")
@@ -9,20 +10,25 @@ else
   exit 127
 fi
 
-APP="Profilarr"
-var_tags="${var_tags:-arr;radarr;sonarr}"
+APP="MyApp"
+
+# Optional metadata for PVE tags (shown in Proxmox UI)
+var_tags="${var_tags:-}"
+
+# Container defaults (can be overridden via default.vars / app vars / env)
 var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-2048}"
-var_disk="${var_disk:-10}"
+var_disk="${var_disk:-8}"
+
+# Template OS
 var_os="${var_os:-debian}"
 var_version="${var_version:-12}"
 
-# Docker i LXC: upstream-default er unprivileged + nesting/keyctl
+# Container type: 1=unprivileged, 0=privileged
 var_unprivileged="${var_unprivileged:-1}"
-var_keyctl="${var_keyctl:-1}"
 
-# Matcher filnavnet: install/profilarr-install.sh (uden .sh)
-var_install="${var_install:-profilarr-install}"
+# Installer script name (install/<name>.sh without .sh)
+var_install="${var_install:-myapp-install}"
 
 header_info
 variables
@@ -31,5 +37,3 @@ build_container
 description
 
 msg_ok "Completed Successfully!"
-echo -e "${INFO}${YW} Access URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:6868${CL}\n"

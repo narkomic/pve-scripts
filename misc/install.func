@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+[[ -n "${_PVE_SCRIPTS_INSTALL_FUNC_LOADED:-}" ]] && return
+_PVE_SCRIPTS_INSTALL_FUNC_LOADED=1
+
+# Repository download base (inherits from host)
+RAW_BASE="${RAW_BASE:-https://raw.githubusercontent.com/narkomic/pve-scripts/main}"
+MISC_BASE="${MISC_BASE:-${RAW_BASE}/misc}"
+
+_fetch() {
+  local url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$url"
+  else
+    echo "Missing dependency: curl or wget is required." >&2
+    return 127
+  fi
+}
+
+# Load the shared framework into the container context (messages, helpers, traps).
+if ! declare -f msg_info >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  source <(_fetch "${MISC_BASE}/core.func")
+fi
+if ! declare -f setup_docker >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  source <(_fetch "${MISC_BASE}/tools.func")
+fi
+if ! declare -f catch_errors >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  source <(_fetch "${MISC_BASE}/error_handler.func")
+fi
+
+declare -f load_functions >/dev/null 2>&1 && load_functions || true
+declare -f catch_errors >/dev/null 2>&1 && catch_errors || true
+
+motd_ssh() {
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq >/dev/null 2>&1 || true
+    apt-get install -y openssh-server >/dev/null 2>&1 || true
+  fi
+
+  mkdir -p /root/.ssh
+  chmod 700 /root/.ssh
+  if [[ -n "${SSH_AUTHORIZED_KEY:-}" ]]; then
+    echo "$SSH_AUTHORIZED_KEY" >>/root/.ssh/authorized_keys
+    sort -u -o /root/.ssh/authorized_keys /root/.ssh/authorized_keys 2>/dev/null || true
+    chmod 600 /root/.ssh/authorized_keys
+  fi
+
+  if [[ -n "${PASSWORD:-}" ]]; then
+    echo "root:${PASSWORD}" | chpasswd 2>/dev/null || true
+  fi
+
+  if [[ -f /etc/ssh/sshd_config ]]; then
+    sed -i -E 's/^\s*#?\s*PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config || true
+    sed -i -E 's/^\s*#?\s*PasswordAuthentication\s+.*/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable -q --now ssh 2>/dev/null || systemctl enable -q --now sshd 2>/dev/null || true
+  else
+    service ssh start 2>/dev/null || service sshd start 2>/dev/null || true
+  fi
+
+  local ip=""
+  ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  [[ -z "$ip" ]] && ip="$(ip -4 addr show eth0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n1 || true)"
+
+  cat >/etc/motd <<EOF
+${APPLICATION:-Container} (debug mode)
+
+IP Address: ${ip:-unknown}
+SSH: root@${ip:-<ip>}
+EOF
+}
+
